@@ -20,6 +20,11 @@ public:
 			red = SDL_MapRGB(screen->format, 255, 0, 0);
 		}
 
+	void drawRect(const int x, const int y, const unsigned int w, const unsigned int h, Uint32 color) {
+		SDL_Rect rect {(Sint16)x, (Sint16)y, (Uint16) w, (Uint16) h};
+		SDL_FillRect(screen, &rect, color);
+	}
+
 	bool pollEvents() {
 		SDL_Event event;
 		while(SDL_PollEvent(&event)) {
@@ -70,8 +75,7 @@ public:
 
 	void logic(Entity& e) {
 		auto pos = e.GetComponent<PositionComponent>();
-		SDL_Rect rect {(short)pos->x, (short)pos->y, 8, 8};
-		SDL_FillRect(r.screen, &rect, r.red);
+		r.drawRect(pos->x, pos->y, 8, 8, r.red);
 	}
 };
 
