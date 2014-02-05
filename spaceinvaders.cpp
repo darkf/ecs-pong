@@ -1,14 +1,18 @@
 #include <SDL/SDL.h>
 #include <vector>
 #include <ecs.hpp>
+#include <iostream>
 
 class Renderer {
 public:
 	unsigned int screenWidth, screenHeight;
 	SDL_Surface *screen;
 	Uint32 black, red;
+	Uint16 mouseX, mouseY;
+	Renderer(const Renderer&) = delete;
 	Renderer(const unsigned int screenWidth, const unsigned int screenHeight)
-		: screenWidth(screenWidth), screenHeight(screenHeight)
+		: screenWidth(screenWidth), screenHeight(screenHeight),
+		  mouseX(0), mouseY(0)
 		{
 			if(SDL_Init(SDL_INIT_VIDEO) > 0)
 				throw "Couldn't initialize SDL";
@@ -29,6 +33,10 @@ public:
 		SDL_Event event;
 		while(SDL_PollEvent(&event)) {
 			if(event.type == SDL_QUIT) return false;
+			else if(event.type == SDL_MOUSEMOTION) {
+				mouseX = event.motion.x;
+				mouseY = event.motion.y;
+			}
 		}
 		return true;
 	}
@@ -79,25 +87,48 @@ public:
 	}
 };
 
+class UserInputComponent : public Component {};
+
+class InputSystem : public System<UserInputComponent, PositionComponent> {
+	private:
+		Renderer& r;
+	public:
+		InputSystem(Renderer& r) : r(r) {}
+
+		void logic(Entity& e) {
+			std::cout << r.mouseY << " ";
+			e.GetComponent<PositionComponent>()->y = r.mouseY;
+		}
+};
+
 class Game {
 	private:
-	Renderer renderer;
+	Renderer& renderer;
 	std::vector<Entity> entities;
 	VelocitySystem velSystem;
 	RenderingSystem renderSystem;
+	InputSystem inputSystem;
 
 	public:
-	Game(Renderer& renderer) : renderer(renderer), renderSystem(renderer) {
+	Game(Renderer& renderer) : renderer(renderer), renderSystem(renderer),
+							   inputSystem(renderer) {
 		Entity e;
 		e.AddComponent(new PositionComponent(32, 32));
 		e.AddComponent(new VelocityComponent(1, 1));
-		entities.push_back(e);
+		entities.push_back(std::move(e));
+
+
+		Entity leftPaddle;
+		leftPaddle.AddComponent(new PositionComponent(5, 10));
+		leftPaddle.AddComponent(new UserInputComponent());
+		entities.push_back(std::move(leftPaddle));
 	}
 
 	void run() {
-		// mainlop
+		// mainloop
 		while(renderer.pollEvents()) {
 			renderer.clear();
+			inputSystem.process(entities);
 			velSystem.process(entities);
 			renderSystem.process(entities);
 			renderer.flip();
