@@ -74,16 +74,22 @@ class VelocitySystem : public System<PositionComponent, VelocityComponent> {
 	}
 };
 
-class RenderingSystem : public System<PositionComponent> {
+struct RectComponent : Component {
+	int w, h;
+	RectComponent(int w, int h) : w(w), h(h) {}
+};
+
+class RectRenderingSystem : public System<PositionComponent, RectComponent> {
 private:
 	Renderer& r;
 
 public:
-	RenderingSystem(Renderer& renderer) : r(renderer) {}
+	RectRenderingSystem(Renderer& renderer) : r(renderer) {}
 
 	void logic(Entity& e) {
 		auto pos = e.GetComponent<PositionComponent>();
-		r.drawRect(pos->x, pos->y, 8, 8, r.red);
+		auto rect = e.GetComponent<RectComponent>();
+		r.drawRect(pos->x, pos->y, rect->w, rect->h, r.red);
 	}
 };
 
@@ -106,20 +112,22 @@ class Game {
 	Renderer& renderer;
 	std::vector<Entity> entities;
 	VelocitySystem velSystem;
-	RenderingSystem renderSystem;
+	RectRenderingSystem rectRenderSystem;
 	InputSystem inputSystem;
 
 	public:
-	Game(Renderer& renderer) : renderer(renderer), renderSystem(renderer),
+	Game(Renderer& renderer) : renderer(renderer), rectRenderSystem(renderer),
 							   inputSystem(renderer) {
 		Entity e;
 		e.AddComponent(new PositionComponent(32, 32));
+		e.AddComponent(new RectComponent(8, 8));
 		e.AddComponent(new VelocityComponent(1, 1));
 		entities.push_back(std::move(e));
 
 
 		Entity leftPaddle;
 		leftPaddle.AddComponent(new PositionComponent(5, 10));
+		leftPaddle.AddComponent(new RectComponent(16, 16*4));
 		leftPaddle.AddComponent(new UserInputComponent());
 		entities.push_back(std::move(leftPaddle));
 	}
@@ -130,7 +138,7 @@ class Game {
 			renderer.clear();
 			inputSystem.process(entities);
 			velSystem.process(entities);
-			renderSystem.process(entities);
+			rectRenderSystem.process(entities);
 			renderer.flip();
 			SDL_Delay(1000 / 30);
 		}
