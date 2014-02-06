@@ -2,6 +2,9 @@
 #include <vector>
 #include <ecs.hpp>
 #include <iostream>
+#include <memory>
+
+using EntityPtr = std::shared_ptr<Entity>;
 
 class Renderer {
 public:
@@ -50,20 +53,17 @@ public:
 	}
 };
 
-class PositionComponent : public Component {
-	public:
+struct PositionComponent : Component {
 	int x, y;
 	PositionComponent(int x, int y) : x(x), y(y) {}
 };
 
-class VelocityComponent : public Component {
-	public:
+struct VelocityComponent : Component {
 	int vx, vy;
 	VelocityComponent(int vx, int vy) : vx(vx), vy(vy) {}
 };
 
-class VelocitySystem : public System<PositionComponent, VelocityComponent> {
-	public:
+struct VelocitySystem : System<PositionComponent, VelocityComponent> {
 	VelocitySystem() {}
 
 	void logic(Entity& e) {
@@ -93,7 +93,7 @@ public:
 	}
 };
 
-class UserInputComponent : public Component {};
+struct UserInputComponent : Component {};
 
 class InputSystem : public System<UserInputComponent, PositionComponent> {
 	private:
@@ -102,43 +102,78 @@ class InputSystem : public System<UserInputComponent, PositionComponent> {
 		InputSystem(Renderer& r) : r(r) {}
 
 		void logic(Entity& e) {
-			std::cout << r.mouseY << " ";
 			e.GetComponent<PositionComponent>()->y = r.mouseY;
+		}
+};
+
+struct BallComponent : Component {};
+struct Ball : Entity {
+	Ball(int x, int y) : Entity() {
+		//AddComponent<PositionComponent>(x, y);
+		AddComponent(new BallComponent());
+		AddComponent(new PositionComponent(x, y));
+		AddComponent<RectComponent>(8, 8);
+		AddComponent<VelocityComponent>(1, 1);
+	}
+};
+
+struct AIComponent : Component {};
+
+struct AISystem : System<AIComponent, PositionComponent> {
+	private:
+		std::shared_ptr<Ball> ball;
+	public:
+		AISystem(std::shared_ptr<Ball> ball) : ball(ball) {}
+
+		void logic(Entity& e) {
+			auto pos = e.GetComponent<PositionComponent>();
+			int ballY = ball->GetComponent<PositionComponent>()->y;
+			//std::cout << "ball: " << ballY << std::endl;
+			pos->y += static_cast<int>( (ballY - pos->y) * 0.01f );
 		}
 };
 
 class Game {
 	private:
 	Renderer& renderer;
-	std::vector<Entity> entities;
+	std::vector<EntityPtr> entities;
+
 	VelocitySystem velSystem;
 	RectRenderingSystem rectRenderSystem;
 	InputSystem inputSystem;
 
+	std::shared_ptr<Ball> ball_;
+	AISystem aiSystem;
+
 	public:
 	Game(Renderer& renderer) : renderer(renderer), rectRenderSystem(renderer),
-							   inputSystem(renderer) {
-		Entity e;
-		e.AddComponent(new PositionComponent(32, 32));
-		e.AddComponent(new RectComponent(8, 8));
-		e.AddComponent(new VelocityComponent(1, 1));
-		entities.push_back(std::move(e));
+	                           inputSystem(renderer),
+	                           ball_(new Ball(32, 32)), aiSystem(ball_) {
+		entities.push_back(ball_);
 
+		EntityPtr leftPaddle = EntityPtr(new Entity);
+		leftPaddle->AddComponent(new PositionComponent(5, 10));
+		leftPaddle->AddComponent(new RectComponent(16, 16*4));
+		leftPaddle->AddComponent(new UserInputComponent());
+		entities.push_back(leftPaddle);
 
-		Entity leftPaddle;
-		leftPaddle.AddComponent(new PositionComponent(5, 10));
-		leftPaddle.AddComponent(new RectComponent(16, 16*4));
-		leftPaddle.AddComponent(new UserInputComponent());
-		entities.push_back(std::move(leftPaddle));
+		EntityPtr rightPaddle = EntityPtr(new Entity);
+		rightPaddle->AddComponent(new PositionComponent(600 - 5, 10));
+		rightPaddle->AddComponent(new RectComponent(16, 16*4));
+		rightPaddle->AddComponent(new AIComponent());
+		entities.push_back(EntityPtr(rightPaddle));
 	}
 
 	void run() {
 		// mainloop
 		while(renderer.pollEvents()) {
 			renderer.clear();
-			inputSystem.process(entities);
-			velSystem.process(entities);
-			rectRenderSystem.process(entities);
+			for(EntityPtr& entity : entities) {
+				inputSystem.process(*entity);
+				velSystem.process(*entity);
+				rectRenderSystem.process(*entity);
+				aiSystem.process(*entity);
+			}
 			renderer.flip();
 			SDL_Delay(1000 / 30);
 		}
