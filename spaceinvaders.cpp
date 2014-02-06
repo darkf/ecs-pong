@@ -106,14 +106,34 @@ class InputSystem : public System<UserInputComponent, PositionComponent> {
 		}
 };
 
+struct BounceComponent : Component {
+	int w, h;
+	BounceComponent(int w, int h) : w(w), h(h) {}
+};
+
+struct BounceSystem : System<BounceComponent, PositionComponent, RectComponent, VelocityComponent> {
+	public:
+		BounceSystem() {}
+
+		void logic(Entity& e) {
+			auto bounds = e.GetComponent<BounceComponent>();
+			auto pos = e.GetComponent<PositionComponent>();
+			auto vel = e.GetComponent<VelocityComponent>();
+			auto rect = e.GetComponent<RectComponent>();
+
+			if(pos->x < 0 || pos->x+rect->w >= bounds->w) vel->vx *= -1;
+			if(pos->y < 0 || pos->y+rect->h >= bounds->h) vel->vy *= -1;
+		}
+};
+
 struct BallComponent : Component {};
 struct Ball : Entity {
-	Ball(int x, int y) : Entity() {
-		//AddComponent<PositionComponent>(x, y);
-		AddComponent(new BallComponent());
-		AddComponent(new PositionComponent(x, y));
+	Ball(int x, int y, int boundW, int boundH) : Entity() {
+		AddComponent<BallComponent>();
+		AddComponent<PositionComponent>(x, y);
 		AddComponent<RectComponent>(8, 8);
-		AddComponent<VelocityComponent>(1, 1);
+		AddComponent<VelocityComponent>(8, 8);
+		AddComponent<BounceComponent>(boundW, boundH);
 	}
 };
 
@@ -139,6 +159,7 @@ class Game {
 	std::vector<EntityPtr> entities;
 
 	VelocitySystem velSystem;
+	BounceSystem bounceSystem;
 	RectRenderingSystem rectRenderSystem;
 	InputSystem inputSystem;
 
@@ -148,7 +169,7 @@ class Game {
 	public:
 	Game(Renderer& renderer) : renderer(renderer), rectRenderSystem(renderer),
 	                           inputSystem(renderer),
-	                           ball_(new Ball(32, 32)), aiSystem(ball_) {
+	                           ball_(new Ball(32, 32, renderer.screenWidth, renderer.screenHeight)), aiSystem(ball_) {
 		entities.push_back(ball_);
 
 		EntityPtr leftPaddle = EntityPtr(new Entity);
@@ -170,6 +191,7 @@ class Game {
 			renderer.clear();
 			for(EntityPtr& entity : entities) {
 				inputSystem.process(*entity);
+				bounceSystem.process(*entity);
 				velSystem.process(*entity);
 				rectRenderSystem.process(*entity);
 				aiSystem.process(*entity);
