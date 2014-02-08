@@ -1,8 +1,11 @@
 #include <SDL/SDL.h>
 #include <vector>
-#include <ecs.hpp>
 #include <iostream>
 #include <memory>
+#include <ecs.hpp>
+#include "event.hpp"
+
+EventMap event::eventMap;
 
 using EntityPtr = std::shared_ptr<Entity>;
 
