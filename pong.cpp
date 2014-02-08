@@ -91,8 +91,10 @@ struct BounceSystem : System<BounceComponent, PositionComponent, RectComponent, 
 			auto vel = e.GetComponent<VelocityComponent>();
 			auto rect = e.GetComponent<RectComponent>();
 
-			if(pos->x < 0 || pos->x+rect->w >= bounds->w) vel->vx *= -1;
-			if(pos->y < 0 || pos->y+rect->h >= bounds->h) vel->vy *= -1;
+			if(bounds->w != -1)
+				if(pos->x < 0 || pos->x+rect->w >= bounds->w) vel->vx *= -1;
+			if(bounds->h != -1)
+				if(pos->y < 0 || pos->y+rect->h >= bounds->h) vel->vy *= -1;
 		}
 };
 
@@ -103,8 +105,23 @@ struct Ball : Entity {
 		AddComponent<PositionComponent>(x, y);
 		AddComponent<RectComponent>(8, 8);
 		AddComponent<VelocityComponent>(8, 8);
-		AddComponent<BounceComponent>(boundW, boundH);
+		AddComponent<BounceComponent>(-1, boundH);
 		AddComponent<Collidable>();
+	}
+};
+
+struct BallSystem : System<BallComponent, PositionComponent, RectComponent> {
+	int boundsW;
+	BallSystem(int boundsW) : boundsW(boundsW) {}
+
+	void logic(Entity& e) {
+		auto pos = e.GetComponent<PositionComponent>();
+		auto rect = e.GetComponent<RectComponent>();
+
+		if(pos->x <= 0 || pos->x+rect->w >= boundsW) {
+			// ball hit left/right edge
+			event::emit(EdgeCollisionEvent(e, pos->x <= 0));
+		}
 	}
 };
 
@@ -163,13 +180,14 @@ class Game {
 	RectRenderingSystem rectRenderSystem;
 	InputSystem inputSystem;
 	CollisionSystem collisionSystem;
+	BallSystem ballSystem;
 
 	std::shared_ptr<Ball> ball_;
 	AISystem aiSystem;
 
 	public:
 	Game(Renderer& renderer) : renderer(renderer), rectRenderSystem(renderer),
-	                           inputSystem(renderer), collisionSystem(entities),
+	                           inputSystem(renderer), collisionSystem(entities), ballSystem(renderer.screenWidth),
 	                           ball_(new Ball(32, 32, renderer.screenWidth, renderer.screenHeight)), aiSystem(ball_) {
 		entities.push_back(ball_);
 
@@ -194,11 +212,12 @@ class Game {
 			renderer.clear();
 			for(EntityPtr& entity : entities) {
 				inputSystem.process(*entity);
-				bounceSystem.process(*entity);
 				velSystem.process(*entity);
-				rectRenderSystem.process(*entity);
+				bounceSystem.process(*entity);
+				ballSystem.process(*entity);
 				aiSystem.process(*entity);
 				collisionSystem.process(*entity);
+				rectRenderSystem.process(*entity);
 			}
 			renderer.flip();
 			SDL_Delay(1000 / 30);

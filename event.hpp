@@ -20,6 +20,12 @@ struct CollisionEvent : Event {
 	CollisionEvent(const Entity& a, const Entity& b) : a(a), b(b) {}
 };
 
+struct EdgeCollisionEvent : Event {
+	const Entity& ball;
+	bool left;
+	EdgeCollisionEvent(const Entity& ball, bool left) : ball(ball), left(left) {}
+};
+
 
 // Has the limitation that on<T> will not catch subtypes of T, only T.
 // That may or may not be a problem for your usecase.
