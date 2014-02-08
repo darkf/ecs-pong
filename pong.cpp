@@ -76,7 +76,13 @@ struct BounceSystem : System<BounceComponent, PositionComponent, RectComponent, 
 		}
 
 		void onCollision(const Event& e) {
-			std::cout << "event" << std::endl;
+			auto col = static_cast<const CollisionEvent&>(e);
+			if(col.a.GetComponent<BounceComponent>() != nullptr) {
+				// col.a is bouncy, col.b will be whatever it collided with
+				auto vel = col.a.GetComponent<VelocityComponent>();
+				vel->vx *= -1;
+				vel->vy *= -1;
+			}
 		}
 
 		void logic(Entity& e) {
@@ -125,6 +131,7 @@ struct CollisionSystem : System<Collidable, PositionComponent, RectComponent> {
 		CollisionSystem(std::vector<EntityPtr>& entities) : entities(entities) {}
 
 		void logic(Entity& a) {
+			// todo: when collision is checked with (a,b) then we don't need to check (b,a)
 			for(EntityPtr b : entities) {
 				if(&a == b.get()) continue; // don't check collision with itself
 
