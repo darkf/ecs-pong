@@ -5,6 +5,8 @@
 #include "event.hpp"
 #include "renderer.hpp"
 
+const float AI_SPEED = 0.15f; // in percentage of distance/s
+
 EventMap event::eventMap;
 
 using EntityPtr = std::shared_ptr<Entity>;
@@ -144,14 +146,15 @@ struct AIComponent : Component {};
 struct AISystem : System<AIComponent, PositionComponent> {
 	private:
 		std::shared_ptr<Ball> ball;
+		float speed;
 	public:
-		AISystem(std::shared_ptr<Ball> ball) : ball(ball) {}
+		AISystem(std::shared_ptr<Ball> ball, float speed) : ball(ball), speed(speed) {}
 
 		void logic(Entity& e) {
 			auto pos = e.GetComponent<PositionComponent>();
 			int ballY = ball->GetComponent<PositionComponent>()->y;
 			//std::cout << "ball: " << ballY << std::endl;
-			pos->y += static_cast<int>( (ballY - pos->y) * 0.01f );
+			pos->y += static_cast<int>( (ballY - pos->y) * speed );
 		}
 };
 
@@ -204,7 +207,7 @@ class Game {
 	public:
 	Game(Renderer& renderer) : renderer(renderer), rectRenderSystem(renderer),
 	                           inputSystem(renderer), collisionSystem(entities), ballSystem(renderer.screenWidth, renderer.screenHeight),
-	                           ball_(new Ball(renderer.screenWidth, renderer.screenHeight)), aiSystem(ball_),
+	                           ball_(new Ball(renderer.screenWidth, renderer.screenHeight)), aiSystem(ball_, AI_SPEED),
 	                           scoreL(0), scoreR(0) {
 		entities.push_back(ball_);
 
