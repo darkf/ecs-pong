@@ -108,19 +108,33 @@ struct Ball : Entity {
 		AddComponent<BounceComponent>(-1, boundH);
 		AddComponent<Collidable>();
 	}
+
+	Ball(int boundW, int boundH) : Ball(boundW/2, boundH/2, boundW, boundH) {}
 };
 
 struct BallSystem : System<BallComponent, PositionComponent, RectComponent> {
-	int boundsW;
-	BallSystem(int boundsW) : boundsW(boundsW) {}
+	int boundsW, boundsH;
+	BallSystem(int boundsW, int boundsH) : boundsW(boundsW), boundsH(boundsH) {}
 
 	void logic(Entity& e) {
 		auto pos = e.GetComponent<PositionComponent>();
+		auto vel = e.GetComponent<VelocityComponent>();
 		auto rect = e.GetComponent<RectComponent>();
 
 		if(pos->x <= 0 || pos->x+rect->w >= boundsW) {
 			// ball hit left/right edge
-			event::emit(EdgeCollisionEvent(e, pos->x <= 0));
+			bool left = (pos->x <= 0);
+			event::emit(EdgeCollisionEvent(e, left));
+
+			// reset us to the middle of the screen
+			pos->x = boundsW/2;
+			pos->y = boundsH/2;
+
+			// going towards which player lost
+			if(left) {
+				vel->vx = -std::abs(vel->vx);
+				//vel->vy = -std::abs(vel->vy);
+			} else vel->vx = std::abs(vel->vx);
 		}
 	}
 };
@@ -185,10 +199,13 @@ class Game {
 	std::shared_ptr<Ball> ball_;
 	AISystem aiSystem;
 
+	int scoreL, scoreR;
+
 	public:
 	Game(Renderer& renderer) : renderer(renderer), rectRenderSystem(renderer),
-	                           inputSystem(renderer), collisionSystem(entities), ballSystem(renderer.screenWidth),
-	                           ball_(new Ball(32, 32, renderer.screenWidth, renderer.screenHeight)), aiSystem(ball_) {
+	                           inputSystem(renderer), collisionSystem(entities), ballSystem(renderer.screenWidth, renderer.screenHeight),
+	                           ball_(new Ball(renderer.screenWidth, renderer.screenHeight)), aiSystem(ball_),
+	                           scoreL(0), scoreR(0) {
 		entities.push_back(ball_);
 
 		EntityPtr leftPaddle = EntityPtr(new Entity);
@@ -204,6 +221,18 @@ class Game {
 		rightPaddle->AddComponent(new AIComponent());
 		rightPaddle->AddComponent<Collidable>();
 		entities.push_back(EntityPtr(rightPaddle));
+
+
+		event::on<EdgeCollisionEvent>(std::bind(&Game::scoreChanged, this, std::placeholders::_1));
+	}
+
+	void scoreChanged(const Event& e) {
+		// edge hit, update score
+		auto edgeCol = static_cast<const EdgeCollisionEvent&>(e);
+		if(edgeCol.left) scoreL++;
+		else scoreR++;
+		std::cout << "Player " << (edgeCol.left ? "Left" : "Right") <<
+				  " scores! Their score is now " << (edgeCol.left ? scoreL : scoreR) << "." << std::endl;
 	}
 
 	void run() {
