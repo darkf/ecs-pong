@@ -7,9 +7,17 @@
 struct Event {
 	virtual ~Event() {}
 };
+
 struct TestEvent : Event {
 	std::string msg;
 	TestEvent(std::string msg) : msg(msg) {}
+};
+
+class Entity;
+struct CollisionEvent : Event {
+	const Entity& a;
+	const Entity& b;
+	CollisionEvent(const Entity& a, const Entity& b) : a(a), b(b) {}
 };
 
 
